@@ -1,0 +1,160 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(uuid())
+  name           String
+  email          String   @unique
+  password       String
+  role           String   @default("CUSTOMER")
+  approvalStatus String   @default("NOT_REQUIRED")
+  createdAt      DateTime @default(now())
+
+  venues        Venue[]    @relation("VenueAdmin")
+  events        Event[]    @relation("EventOrganiser")
+  bookings      Booking[]
+  waitlistItems Waitlist[]
+  heldSeats     ShowSeat[] @relation("HeldBy")
+}
+
+model Venue {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  createdAt DateTime @default(now())
+  adminId   String
+
+  admin User @relation("VenueAdmin", fields: [adminId], references: [id])
+
+  categories SeatCategory[]
+  seats      Seat[]
+  events     Event[]
+}
+
+model SeatCategory {
+  id      String @id @default(uuid())
+  name    String
+  venueId String
+
+  venue Venue @relation(fields: [venueId], references: [id])
+
+  seats        Seat[]
+  eventPricing EventCategoryPrice[]
+  waitlist     Waitlist[]
+
+  @@unique([venueId, name])
+}
+
+model Seat {
+  id         String @id @default(uuid())
+  row        String
+  number     Int
+  venueId    String
+  categoryId String
+
+  venue    Venue        @relation(fields: [venueId], references: [id])
+  category SeatCategory @relation(fields: [categoryId], references: [id])
+
+  showSeats ShowSeat[]
+
+  @@unique([venueId, row, number])
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  type        String
+  description String?
+  date        DateTime
+  time        String
+  venueId     String
+  organiserId String
+  createdAt   DateTime @default(now())
+
+  venue     Venue @relation(fields: [venueId], references: [id])
+  organiser User  @relation("EventOrganiser", fields: [organiserId], references: [id])
+
+  pricing   EventCategoryPrice[]
+  showSeats ShowSeat[]
+  waitlist  Waitlist[]
+  bookings  Booking[]
+}
+
+model EventCategoryPrice {
+  id         String @id @default(uuid())
+  eventId    String
+  categoryId String
+  price      Float
+
+  event    Event        @relation(fields: [eventId], references: [id])
+  category SeatCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([eventId, categoryId])
+}
+
+model ShowSeat {
+  id            String    @id @default(uuid())
+  eventId       String
+  seatId        String
+  status        String    @default("AVAILABLE")
+  heldById      String?
+  holdExpiresAt DateTime?
+
+  event  Event @relation(fields: [eventId], references: [id])
+  seat   Seat  @relation(fields: [seatId], references: [id])
+  heldBy User? @relation("HeldBy", fields: [heldById], references: [id])
+
+  bookingSeats BookingSeat[]
+
+  @@unique([eventId, seatId])
+}
+
+model Booking {
+  id          String    @id @default(uuid())
+  reference   String    @unique
+  userId      String
+  eventId     String
+  status      String    @default("CONFIRMED")
+  totalAmount Float
+  qrCodeData  String?
+  createdAt   DateTime  @default(now())
+  cancelledAt DateTime?
+
+  user  User  @relation(fields: [userId], references: [id])
+  event Event @relation(fields: [eventId], references: [id])
+
+  seats BookingSeat[]
+}
+
+model BookingSeat {
+  id         String @id @default(uuid())
+  bookingId  String
+  showSeatId String
+  price      Float
+
+  booking  Booking  @relation(fields: [bookingId], references: [id])
+  showSeat ShowSeat @relation(fields: [showSeatId], references: [id])
+}
+
+model Waitlist {
+  id                String    @id @default(uuid())
+  eventId           String
+  categoryId        String
+  userId            String
+  status            String    @default("WAITING")
+  position          Int
+  offeredShowSeatId String?
+  offerExpiresAt    DateTime?
+  offerToken        String?
+  createdAt         DateTime  @default(now())
+
+  event    Event        @relation(fields: [eventId], references: [id])
+  category SeatCategory @relation(fields: [categoryId], references: [id])
+  user     User         @relation(fields: [userId], references: [id])
+}
