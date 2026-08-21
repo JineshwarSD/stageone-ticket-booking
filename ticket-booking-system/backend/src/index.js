@@ -61,6 +61,7 @@ const server =
 const io = new Server(server, {
   cors: {
     origin: CLIENT_URL,
+    methods: ['GET', 'POST'],
     credentials: true,
   },
 });
@@ -73,6 +74,7 @@ const io = new Server(server, {
 app.use(
   cors({
     origin: CLIENT_URL,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   })
 );
