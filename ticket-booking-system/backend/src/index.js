@@ -43,6 +43,10 @@ const waitlistRoutes =
 const adminRoutes =
   require('./routes/adminRoutes');
 
+// TEMPORARY ADMIN SETUP
+const setupRoutes =
+  require('./routes/setupRoutes');
+
 
 // ============================================================
 // APP
@@ -74,7 +78,14 @@ const io = new Server(server, {
 app.use(
   cors({
     origin: CLIENT_URL,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: [
+      'GET',
+      'POST',
+      'PUT',
+      'PATCH',
+      'DELETE',
+      'OPTIONS',
+    ],
     credentials: true,
   })
 );
@@ -95,10 +106,12 @@ app.use(
 app.get(
   '/api/health',
   (req, res) => {
+
     res.json({
       status: 'ok',
       time: new Date().toISOString(),
     });
+
   }
 );
 
@@ -149,11 +162,31 @@ app.use(
 
 
 // ============================================================
+// TEMPORARY ADMIN SETUP
+// ============================================================
+//
+// Used ONLY to create the first production admin.
+//
+// Endpoint:
+// GET /api/setup/create-admin
+//
+// After the admin is successfully created,
+// REMOVE this route and setup files.
+//
+
+app.use(
+  '/api/setup',
+  setupRoutes
+);
+
+
+// ============================================================
 // 404
 // ============================================================
 
 app.use(
   (req, res) => {
+
     console.log(
       `404 - ${req.method} ${req.originalUrl}`
     );
@@ -161,6 +194,7 @@ app.use(
     res.status(404).json({
       message: 'Route not found',
     });
+
   }
 );
 
@@ -171,14 +205,17 @@ app.use(
 
 app.use(
   (err, req, res, next) => {
+
     console.error(
       'Server error:',
       err
     );
 
     res.status(500).json({
-      message: 'Internal server error',
+      message:
+        'Internal server error',
     });
+
   }
 );
 
@@ -204,7 +241,9 @@ startHoldExpiryJob();
 server.listen(
   PORT,
   () => {
+
     console.log('');
+
     console.log(
       `🚀 Ticket Booking API running on http://localhost:${PORT}`
     );
@@ -226,5 +265,6 @@ server.listen(
     );
 
     console.log('');
+
   }
 );
