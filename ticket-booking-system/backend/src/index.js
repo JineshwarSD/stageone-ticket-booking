@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const morgan = require('morgan');
+const bcrypt = require('bcryptjs');
 const { Server } = require('socket.io');
 
 const {
@@ -16,6 +17,8 @@ const {
 const {
   startHoldExpiryJob,
 } = require('./jobs/holdExpiry');
+
+const prisma = require('./config/db');
 
 
 // ============================================================
@@ -42,10 +45,6 @@ const waitlistRoutes =
 
 const adminRoutes =
   require('./routes/adminRoutes');
-
-// TEMPORARY ADMIN SETUP
-const setupRoutes =
-  require('./routes/setupRoutes');
 
 
 // ============================================================
@@ -117,6 +116,177 @@ app.get(
 
 
 // ============================================================
+// TEMPORARY ADMIN CREATION
+// ============================================================
+//
+// Creates exactly ONE ADMIN account:
+//
+// Email:    admin@stageone.com
+// Password: admin123
+//
+// REMOVE THIS ROUTE AFTER SUCCESSFUL CREATION.
+//
+
+app.get(
+  '/api/setup/create-admin',
+  async (req, res) => {
+
+    try {
+
+      const email =
+        'admin@stageone.com';
+
+      const password =
+        'admin123';
+
+
+      // --------------------------------------------------------
+      // CHECK IF ADMIN ALREADY EXISTS
+      // --------------------------------------------------------
+
+      const existingAdmin =
+        await prisma.user.findFirst({
+          where: {
+            role: 'ADMIN',
+          },
+        });
+
+
+      if (existingAdmin) {
+
+        return res.status(409).json({
+
+          message:
+            'An admin account already exists.',
+
+          admin: {
+            name:
+              existingAdmin.name,
+
+            email:
+              existingAdmin.email,
+
+            role:
+              existingAdmin.role,
+          },
+
+        });
+
+      }
+
+
+      // --------------------------------------------------------
+      // CHECK EMAIL
+      // --------------------------------------------------------
+
+      const existingUser =
+        await prisma.user.findUnique({
+
+          where: {
+            email,
+          },
+
+        });
+
+
+      if (existingUser) {
+
+        return res.status(409).json({
+
+          message:
+            'This email is already registered.',
+
+        });
+
+      }
+
+
+      // --------------------------------------------------------
+      // HASH PASSWORD
+      // --------------------------------------------------------
+
+      const hashedPassword =
+        await bcrypt.hash(
+          password,
+          10
+        );
+
+
+      // --------------------------------------------------------
+      // CREATE ADMIN
+      // --------------------------------------------------------
+
+      const admin =
+        await prisma.user.create({
+
+          data: {
+
+            name:
+              'StageOne Admin',
+
+            email,
+
+            password:
+              hashedPassword,
+
+            role:
+              'ADMIN',
+
+            approvalStatus:
+              'NOT_REQUIRED',
+
+          },
+
+        });
+
+
+      return res.status(201).json({
+
+        message:
+          'Admin created successfully.',
+
+        admin: {
+
+          id:
+            admin.id,
+
+          name:
+            admin.name,
+
+          email:
+            admin.email,
+
+          role:
+            admin.role,
+
+        },
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        'Create admin error:',
+        error
+      );
+
+      return res.status(500).json({
+
+        message:
+          'Failed to create admin.',
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ============================================================
 // API ROUTES
 // ============================================================
 
@@ -162,25 +332,6 @@ app.use(
 
 
 // ============================================================
-// TEMPORARY ADMIN SETUP
-// ============================================================
-//
-// Used ONLY to create the first production admin.
-//
-// Endpoint:
-// GET /api/setup/create-admin
-//
-// After the admin is successfully created,
-// REMOVE this route and setup files.
-//
-
-app.use(
-  '/api/setup',
-  setupRoutes
-);
-
-
-// ============================================================
 // 404
 // ============================================================
 
@@ -192,7 +343,8 @@ app.use(
     );
 
     res.status(404).json({
-      message: 'Route not found',
+      message:
+        'Route not found',
     });
 
   }
@@ -212,8 +364,10 @@ app.use(
     );
 
     res.status(500).json({
+
       message:
         'Internal server error',
+
     });
 
   }
@@ -262,6 +416,10 @@ server.listen(
 
     console.log(
       '   Analytics: /api/admin/analytics'
+    );
+
+    console.log(
+      '   Temporary admin setup: /api/setup/create-admin'
     );
 
     console.log('');
